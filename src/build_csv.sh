@@ -4,7 +4,7 @@ set -o xtrace
 
 MEASUREMENTS=10
 INITIAL_SIZE=16
-SIZE_ITERATIONS=2
+SIZE_ITERATIONS=6
 INITIAL_NUM_THREADS=1
 THREAD_ITERATIONS=6
 
@@ -12,7 +12,7 @@ SIZE=$INITIAL_SIZE
 NUM_THREADS=$INITIAL_NUM_THREADS
 
 NAMES=('mandelbrot_seq' 'mandelbrot_pth' 'mandelbrot_omp')
-FILES=('full.log' 'seahorse.log' 'elephant.log' 'triple_spiral.log')
+FILES=('full.csv' 'seahorse.csv' 'elephant.csv' 'triple_spiral.csv')
 
 make
 mkdir data
@@ -22,10 +22,10 @@ for NAME in ${NAMES[@]}; do
 
     for ((j=1; j<=$THREAD_ITERATIONS; j++)) do
         for ((i=1; i<=$SIZE_ITERATIONS; i++)); do
-                perf stat -r $MEASUREMENTS ./$NAME -2.5 1.5 -2.0 2.0 $SIZE $NUM_THREADS >> /tmp/full.log 2>&1
-                perf stat -r $MEASUREMENTS ./$NAME -0.8 -0.7 0.05 0.15 $SIZE $NUM_THREADS>> /tmp/seahorse.log 2>&1
-                perf stat -r $MEASUREMENTS ./$NAME 0.175 0.375 -0.1 0.1 $SIZE $NUM_THREADS>> /tmp/elephant.log 2>&1
-                perf stat -r $MEASUREMENTS ./$NAME -0.188 -0.012 0.554 0.754 $SIZE $NUM_THREADS>> /tmp/triple_spiral.log 2>&1
+                perf stat -r $MEASUREMENTS ./$NAME -2.5 1.5 -2.0 2.0 $SIZE $NUM_THREADS >> /tmp/full.csv 2>&1
+                perf stat -r $MEASUREMENTS ./$NAME -0.8 -0.7 0.05 0.15 $SIZE $NUM_THREADS>> /tmp/seahorse.csv 2>&1
+                perf stat -r $MEASUREMENTS ./$NAME 0.175 0.375 -0.1 0.1 $SIZE $NUM_THREADS>> /tmp/elephant.csv 2>&1
+                perf stat -r $MEASUREMENTS ./$NAME -0.188 -0.012 0.554 0.754 $SIZE $NUM_THREADS>> /tmp/triple_spiral.csv 2>&1
 
                 for FILE in ${FILES[@]}; do
                     grep "time" /tmp/$FILE >> $FILE;    # Grava somente as linhas com o tempo decorrido no arquivo.
@@ -49,12 +49,12 @@ for NAME in ${NAMES[@]}; do
         NUM_THREADS=$(($NUM_THREADS * 2))
         
         if [ $NAME == "mandelbrot_seq" ]; then
-                break
+            break;
         fi
     done
 
     NUM_THREADS=$INITIAL_NUM_THREADS
 
-    mv *.log data/$NAME
+    mv *.csv data/$NAME
     rm output.ppm
 done
