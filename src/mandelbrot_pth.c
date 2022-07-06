@@ -5,8 +5,6 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#define NTHREADS 16
-
 /* Print an error message and exit with failure code */
 #define DIE(...) { \
     fprintf(stderr, __VA_ARGS__); \
@@ -18,6 +16,9 @@ struct task {
     int start_pos;
     int end_pos;
 };
+
+/* Number of threads */
+int n_threads;
 
 /* Array that stores the threads IDs */
 pthread_t * threads;
@@ -73,13 +74,13 @@ void allocate_image_buffer(){
 };
 
 void init(int argc, char *argv[]){
-    if(argc < 6){
-        printf("usage: ./mandelbrot_pth c_x_min c_x_max c_y_min c_y_max image_size\n");
-        printf("examples with image_size = 11500:\n");
-        printf("    Full Picture:         ./mandelbrot_pth -2.5 1.5 -2.0 2.0 11500\n");
-        printf("    Seahorse Valley:      ./mandelbrot_pth -0.8 -0.7 0.05 0.15 11500\n");
-        printf("    Elephant Valley:      ./mandelbrot_pth 0.175 0.375 -0.1 0.1 11500\n");
-        printf("    Triple Spiral Valley: ./mandelbrot_pth -0.188 -0.012 0.554 0.754 11500\n");
+    if(argc < 7){
+        printf("usage: ./mandelbrot_omp c_x_min c_x_max c_y_min c_y_max image_size\n");
+        printf("examples with image_size = 11500 and n_threads = 16:\n");
+        printf("    Full Picture:         ./mandelbrot_pth -2.5 1.5 -2.0 2.0 11500 16\n");
+        printf("    Seahorse Valley:      ./mandelbrot_pth -0.8 -0.7 0.05 0.15 11500 16\n");
+        printf("    Elephant Valley:      ./mandelbrot_pth 0.175 0.375 -0.1 0.1 11500 16\n");
+        printf("    Triple Spiral Valley: ./mandelbrot_pth -0.188 -0.012 0.554 0.754 11500 16\n");
         exit(0);
     }
     else{
@@ -88,6 +89,7 @@ void init(int argc, char *argv[]){
         sscanf(argv[3], "%lf", &c_y_min);
         sscanf(argv[4], "%lf", &c_y_max);
         sscanf(argv[5], "%d", &image_size);
+        sscanf(argv[6], "%d", &n_threads);
 
         i_x_max           = image_size;
         i_y_max           = image_size;
@@ -97,10 +99,10 @@ void init(int argc, char *argv[]){
         pixel_height      = (c_y_max - c_y_min) / i_y_max;
     };
     /* Initialization of array with threads IDs */
-    if((threads = malloc(NTHREADS * sizeof(pthread_t))) == NULL)
+    if((threads = malloc(n_threads * sizeof(pthread_t))) == NULL)
         DIE("Threads malloc failed\n");
     /* Initialization of array with tasks of each thread */
-    if((tasks = malloc(NTHREADS * sizeof(struct task))) == NULL)
+    if((tasks = malloc(n_threads * sizeof(struct task))) == NULL)
         DIE("Tasks malloc failed\n");
 };
 
@@ -201,15 +203,15 @@ void compute_mandelbrot(){
     int k;
 
     /* Defining number of threads with one more pixel to care */
-    threads_with_one_more_work = image_buffer_size % NTHREADS;
+    threads_with_one_more_work = image_buffer_size % n_threads;
 
     /* Setting position of first pixel */
     current_pos = 0;
 
     /* For each thread: */
-    for (k = 0; k < NTHREADS; ++k) {
+    for (k = 0; k < n_threads; ++k) {
         /* Getting the minimum num of pixels for this thread */
-        work_size = image_buffer_size / NTHREADS;
+        work_size = image_buffer_size / n_threads;
 
         /* Is this one of the threads with one more pixel to care? */
         if (k < threads_with_one_more_work)
@@ -226,11 +228,11 @@ void compute_mandelbrot(){
     };
 
     /* Joining the threads */
-    for (k = 0; k < NTHREADS; ++k) {
+    for (k = 0; k < n_threads; ++k) {
         if(pthread_join(threads[k], NULL))
             DIE("failed to join thread %d\n", k);
     };
-    
+
 };
 
 int main(int argc, char *argv[]){
