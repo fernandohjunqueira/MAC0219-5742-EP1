@@ -2,6 +2,29 @@
 #include <stdlib.h>
 #include <math.h>
 
+#include <unistd.h>
+#include <pthread.h>
+
+#define NTHREADS 16
+
+/* Print an error message and exit with failure code */
+#define DIE(...) { \
+    fprintf(stderr, __VA_ARGS__); \
+    exit(EXIT_FAILURE); \
+};
+
+/* A task containing the range of pixels that one thread takes care */
+struct task {
+    int start_pos;
+    int end_pos;
+};
+
+/* Array that stores the threads IDs */
+pthread_t * threads;
+
+/* Array that stores the tasks for the threads*/
+struct task *tasks;
+
 double c_x_min;
 double c_x_max;
 double c_y_min;
@@ -73,6 +96,12 @@ void init(int argc, char *argv[]){
         pixel_width       = (c_x_max - c_x_min) / i_x_max;
         pixel_height      = (c_y_max - c_y_min) / i_y_max;
     };
+    /* Initialization of array with threads IDs */
+    if((threads = malloc(NTHREADS * sizeof(pthread_t))) == NULL)
+        DIE("Threads malloc failed\n");
+    /* Initialization of array with tasks of each thread */
+    if((tasks = malloc(NTHREADS * sizeof(struct task))) == NULL)
+        DIE("Tasks malloc failed\n");
 };
 
 void update_rgb_buffer(int iteration, int x, int y){
@@ -111,7 +140,7 @@ void write_to_file(){
     fclose(file);
 };
 
-void compute_mandelbrot(){
+void *thread_work(void *arg) {
     double z_x;
     double z_y;
     double z_x_squared;
@@ -119,42 +148,89 @@ void compute_mandelbrot(){
     double escape_radius_squared = 4;
 
     int iteration;
-    int i_x;
-    int i_y;
+    int row;
+    int col;
 
     double c_x;
     double c_y;
 
-    for(i_y = 0; i_y < i_y_max; i_y++){
-        c_y = c_y_min + i_y * pixel_height;
+    struct task * t = (struct task *) arg;
 
-        if(fabs(c_y) < pixel_height / 2){
+    for (int k = t->start_pos; k < t-> end_pos; k++) {
+        /* Converting array indexes to matrix indexes */
+        col = k % i_y_max;
+        row = k / i_y_max;
+
+        /* Defining complex number coordinates */
+        c_x = c_x_min + col * pixel_width;
+        c_y = c_y_min + row * pixel_height;
+
+        if(fabs(c_y) < pixel_height / 2) {
             c_y = 0.0;
         };
 
-        for(i_x = 0; i_x < i_x_max; i_x++){
-            c_x         = c_x_min + i_x * pixel_width;
+        /* Resetting z and z^2 */
+        z_x = 0.0;
+        z_y = 0.0;
+        z_x_squared = 0.0;
+        z_y_squared = 0.0;
 
-            z_x         = 0.0;
-            z_y         = 0.0;
+        /* Define pixel color */
+        for(iteration = 0;
+            iteration < iteration_max && \
+            ((z_x_squared + z_y_squared) < escape_radius_squared);
+            iteration++){
+            z_y         = 2 * z_x * z_y + c_y;
+            z_x         = z_x_squared - z_y_squared + c_x;
 
-            z_x_squared = 0.0;
-            z_y_squared = 0.0;
-
-            for(iteration = 0;
-                iteration < iteration_max && \
-                ((z_x_squared + z_y_squared) < escape_radius_squared);
-                iteration++){
-                z_y         = 2 * z_x * z_y + c_y;
-                z_x         = z_x_squared - z_y_squared + c_x;
-
-                z_x_squared = z_x * z_x;
-                z_y_squared = z_y * z_y;
-            };
-
-            update_rgb_buffer(iteration, i_x, i_y);
+            z_x_squared = z_x * z_x;
+            z_y_squared = z_y * z_y;
         };
+
+        /* Commit pixel color */
+        update_rgb_buffer(iteration, col, row);
     };
+
+    return NULL;
+};
+
+void compute_mandelbrot(){
+    int current_pos;
+    int threads_with_one_more_work;
+    int work_size;
+    int k;
+
+    /* Defining number of threads with one more pixel to care */
+    threads_with_one_more_work = image_buffer_size % NTHREADS;
+
+    /* Setting position of first pixel */
+    current_pos = 0;
+
+    /* For each thread: */
+    for (k = 0; k < NTHREADS; ++k) {
+        /* Getting the minimum num of pixels for this thread */
+        work_size = image_buffer_size / NTHREADS;
+
+        /* Is this one of the threads with one more pixel to care? */
+        if (k < threads_with_one_more_work)
+            work_size += 1;
+
+        /* Defining the range of pixels that this thread takes care */
+        tasks[k].start_pos = current_pos;
+        tasks[k].end_pos = tasks[k].start_pos + work_size;
+        current_pos = tasks[k].end_pos;
+
+        /* Start this thread work */
+        if(pthread_create(&threads[k], NULL, thread_work, (void *)&tasks[k]))
+            DIE("Failed to create thread %d\n", k);
+    };
+
+    /* Joining the threads */
+    for (k = 0; k < NTHREADS; ++k) {
+        if(pthread_join(threads[k], NULL))
+            DIE("failed to join thread %d\n", k);
+    };
+    
 };
 
 int main(int argc, char *argv[]){
