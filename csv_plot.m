@@ -26,7 +26,7 @@ global SIZE = 10;
 global THREADS = 6;
 global colors=['r', 'b', 'y', 'g', 'c', 'm'];
 
-function plot_sequential(data)
+function plot_sequential(data, data_mod)
   global yrange;
 
   #ylim(yrange);
@@ -38,9 +38,17 @@ function plot_sequential(data)
        "marker", ".",
        "markersize", 8,
        "clipping", "on");
+   line(data_mod(1:end, 2),
+        data_mod(1:end, 3),
+        "linewidth", 1,
+        "color", 'b',
+        "marker", ".",
+        "markersize", 8,
+        "clipping", "on");
 
   xlabel("Entry Size");
   ylabel("Time Elapsed (seconds)");
+  legend("With I/O & Mem. Alloc.", "Without I/O & Mem. Alloc.", "location", "northwest");
   box on;
   grid on;
 
@@ -70,7 +78,7 @@ function plot_size_threads(data)
   xlabel("Entry Size");
   ylabel("Time Elapsed (seconds)");
   legend("1 thread", "2 threads", "4 threads", "8 threads", "16 threads", "32 threads",
-         "location", "eastoutside");
+         "location", "northwest");
   box on;
   grid on;
 
@@ -82,51 +90,26 @@ close all
 # SEQUENTIAL
 figure(1);
 title("Sequential: Full", "FontSize", 22, 'FontName', 'SansSerif');
-plot_sequential(data_seq_full);
+plot_sequential(data_seq_full, data_seq_mod_full);
 saveas(1, "seq_full", "jpg");
 close;
 
 figure(2);
 title("Sequential: Seahorse", "FontSize", 22, 'FontName', 'SansSerif');
-plot_sequential(data_seq_seahorse);
+plot_sequential(data_seq_seahorse, data_seq_mod_seahorse);
 saveas(2, "seq_seahorse", "jpg");
 close;
 
 figure(3);
 title("Sequential: Elephant", "FontSize", 22, 'FontName', 'SansSerif');
-plot_sequential(data_seq_elephant);
+plot_sequential(data_seq_elephant, data_seq_mod_elephant);
 saveas(3, "seq_elephant", "jpg");
 close;
 
 figure(4);
 title("Sequential: Triple Spiral", "FontSize", 22, 'FontName', 'SansSerif');
-plot_sequential(data_seq_triple_spiral);
+plot_sequential(data_seq_triple_spiral, data_seq_mod_triple_spiral);
 saveas(4, "seq_triple_spiral", "jpg");
-close;
-
-# SEQUENTIAL (MOD)
-figure(5);
-title("Sequential (mod): Full", "FontSize", 22, 'FontName', 'SansSerif');
-plot_sequential(data_seq_mod_full);
-saveas(5, "seq_mod_full", "jpg");
-close;
-
-figure(6);
-title("Sequential (mod): Seahorse", "FontSize", 22, 'FontName', 'SansSerif');
-plot_sequential(data_seq_mod_seahorse);
-saveas(6, "seq_mod_seahorse", "jpg");
-close;
-
-figure(7);
-title("Sequential (mod): Elephant", "FontSize", 22, 'FontName', 'SansSerif');
-plot_sequential(data_seq_mod_elephant);
-saveas(7, "seq_mod_elephant", "jpg");
-close;
-
-figure(8);
-title("Sequential (mod): Triple Spiral", "FontSize", 22, 'FontName', 'SansSerif');
-plot_sequential(data_seq_mod_triple_spiral);
-saveas(8, "seq_mod_triple_spiral", "jpg");
 close;
 
 # PTHREADS
